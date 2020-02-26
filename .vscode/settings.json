@@ -1,0 +1,12 @@
+{
+  "files.eol": "\n",
+  "python.autoComplete.extraPaths": ["src"],
+  "python.linting.enabled": true,
+  "python.pythonPath": "C:\\tools\\Anaconda3\\envs\\nls\\python.exe",
+  "python.linting.mypyEnabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.pylintArgs": [
+    "--rcfile=setup.cfg"
+  ]
+}

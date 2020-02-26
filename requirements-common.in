@@ -1,0 +1,16 @@
+en-core-web-sm-mirror
+numpy
+sklearn
+spacy
+
+# PyTorch for Windows
+https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl; platform_system == "Windows"
+
+# PyTorch for Linux
+https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-linux_x86_64.whl; platform_system == "Linux"
+
+# PyTorch for Mac
+https://download.pytorch.org/whl/cpu/torch-1.4.0-cp37-none-macosx_10_9_x86_64.whl; platform_system == "Darwin"
+
+# Anaconda requirements
+wincertstore
