@@ -1,22 +1,26 @@
-from functools import reduce
-from typing import cast, List, Tuple
+"""Corpus for NLP applications
+Contains the Corpus class, which represents a set of texts on which NLP operations can be performed.
+"""
 
-import en_core_web_sm
+from itertools import chain
+from typing import List, Tuple
+
 from spacy.language import Language
 
-from utilities import get_neighouring_token_count, load_texts
+from utilities import get_neighouring_token_count, create_clusters, load_texts
 
 
 class Corpus():
-    def __init__(self, data_path: str):
-        self.tagger: Language = en_core_web_sm.load()
+    """Class, which represents a set of texts on which NLP operations can be performed."""
 
-        self.texts: List[Language] = reduce(
-            lambda previous_text, current_text:
-                cast(List[Language], previous_text.append(self.tagger(' '.join(current_text)))),
-            load_texts(data_path),
-            [],
-        )
+    def __init__(self, data_paths: List[str], tagger: Language, description: str):
+        print(f'\n===== Corpus: {description} =====')
+
+        self.tagger = tagger
+
+        # Load and join lines in each text and tag the produced texts
+        print('Loading texts...')
+        self.texts = list(chain.from_iterable(load_texts(data_path) for data_path in data_paths))
 
     def calculate_vb_nn_probabilities(
         self
@@ -40,8 +44,11 @@ class Corpus():
         vb_tokens: List[Language] = []
         nn_tokens: List[Language] = []
 
+        print('Tagging texts...')
+        tagged_texts = [self.tagger(' '.join(text)) for text in self.texts]
+
         # Get word transition counts
-        for text in self.texts:
+        for text in tagged_texts:
             dt_count += len([token for token in text if token.tag_ == 'DT'])
 
             dt_vb_count += get_neighouring_token_count('DT', 'VB', text)
@@ -69,3 +76,18 @@ class Corpus():
 
         return (vb_word_likelihood, dt_vb_probability, vb_in_probability), \
             (nn_word_likelihood, dt_nn_probability, nn_in_probability)
+
+    def test_clustering(self, target_words: List[str], context_size: int) -> None:
+        cluster_count = len(target_words)
+
+        test_target_words = target_words + [word[::-1] for word in target_words]
+        word_to_index = {word: index for index, word in enumerate(test_target_words)}
+
+        lines = list(map(str.split, chain.from_iterable(self.texts)))
+
+        clusters = create_clusters(test_target_words, cluster_count, context_size, lines)
+        correct_count = sum(1 for index, cluster in enumerate(clusters[:len(clusters) // 2])
+            if cluster == clusters[word_to_index[test_target_words[index][::-1]]])
+
+        print(f'Correct pairs: {correct_count}/{cluster_count}'
+            f', accuracy: {correct_count/cluster_count}')

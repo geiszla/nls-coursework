@@ -1,13 +1,19 @@
+"""Embeddings using Continuous Bag-of-Word model
+Contains the `Embeddings` class representing word embeddings using a trainable CBOW model.
+
+> Proof-of-concept, not used in final program
+"""
+
+from math import ceil
 from random import random
 from typing import cast, List, Tuple
 
 import numpy
 from nptyping import Array
+from sklearn.cluster import KMeans
 import torch
 from torch import Tensor
 import torch.nn as nn
-
-from sklearn.cluster import KMeans
 
 
 class CBOW(nn.Module):
@@ -42,14 +48,19 @@ class Embeddings():
 
         self.context_size = context_size
 
-    def train(self, texts: List[str]):
+    def train(self, texts: List[str]) -> None:
         data: List[Tuple[Tensor, str]] = []
 
         for text in texts:
             words = text.split()
 
             for index in range(2, len(words) - 2):
-                context = [text[index - 2], text[index - 1], text[index + 1], text[index + 2]]
+                start_index = index - self.context_size // 2
+                start_index = start_index if start_index >= 0 else 0
+                end_index = ceil(index + self.context_size / 2)
+                end_index = end_index if end_index < len(words) else len(words) - 1
+
+                context = [words[index] for index in range(start_index, end_index + 1)]
                 target = text[index]
 
                 data.append((self.__create_context_vector(context), target))
@@ -76,7 +87,7 @@ class Embeddings():
 
                 total_loss += loss.item()
 
-    def predict(self, context: List[str]):
+    def predict(self, context: List[str]) -> str:
         context_vector = self.__create_context_vector(context)
         [probabilities] = self.model(context_vector).data.numpy()
 
@@ -94,7 +105,7 @@ class Embeddings():
         original_clusters = self.cluster(target_words, cluster_count)
         reversed_clusters = self.cluster(self.vocabulary, cluster_count)
 
-        correct_count = sum(cluster for index, cluster in enumerate(original_clusters)
+        correct_count = sum(1 for index, cluster in enumerate(original_clusters)
             if cluster == reversed_clusters[index])
 
         print(f'Correct pairs: {correct_count/cluster_count}')

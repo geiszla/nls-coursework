@@ -24,11 +24,10 @@ sklearn==0.0              # via -r requirements-common.in (line 3)
 spacy==2.2.3              # via -r requirements-common.in (line 4), en-core-web-sm-mirror
 srsly==1.0.1              # via spacy, thinc
 thinc==7.3.1              # via spacy
-https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl ; platform_system == "Windows"  # via -r requirements-common.in (line 7)
 tqdm==4.43.0              # via thinc
 urllib3==1.24.3           # via requests
 wasabi==0.6.0             # via spacy, thinc
-wincertstore==0.2         # via -r requirements-common.in (line 16)
+wincertstore==0.2         # via -r requirements-common.in (line 7)
 zipp==3.0.0               # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
