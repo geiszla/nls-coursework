@@ -3,6 +3,7 @@ Contains the Corpus class, which represents a set of texts on which NLP operatio
 """
 
 from itertools import chain
+from random import random
 from typing import List, Tuple
 
 from spacy.language import Language
@@ -11,19 +12,26 @@ from utilities import get_neighouring_token_count, create_clusters, load_texts
 
 
 class Corpus():
-    """Class, which represents a set of texts on which NLP operations can be performed."""
+    """Class, that represents a set of texts on which NLP operations can be performed."""
 
-    def __init__(self, data_paths: List[str], tagger: Language, description: str):
+    def __init__(self, data_paths: List[str], description: str):
+        """Creates a `Corpus` instance
+
+        Parameters
+        ----------
+        data_paths (List[str]): List of paths to look for text files in (recursively)
+
+        description (str): A short description of the current corpus
+        """
+
         print(f'\n===== Corpus: {description} =====')
-
-        self.tagger = tagger
 
         # Load and join lines in each text and tag the produced texts
         print('Loading texts...')
         self.texts = list(chain.from_iterable(load_texts(data_path) for data_path in data_paths))
 
     def calculate_vb_nn_probabilities(
-        self
+        self, tagger
     ) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
         """Calculate the probabilities that an occurrence of the word "race" has the tag "VB"
             and the same for "NN".
@@ -45,7 +53,7 @@ class Corpus():
         nn_tokens: List[Language] = []
 
         print('Tagging texts...')
-        tagged_texts = [self.tagger(' '.join(text)) for text in self.texts]
+        tagged_texts = [tagger(' '.join(text)) for text in self.texts]
 
         # Get word transition counts
         for text in tagged_texts:
@@ -78,16 +86,33 @@ class Corpus():
             (nn_word_likelihood, dt_nn_probability, nn_in_probability)
 
     def test_clustering(self, target_words: List[str], context_size: int) -> None:
+        """Creates clusters from the given word list and tests its accuracy using pseudoword
+            disambiguation on the corpus texts.
+
+        Parameters
+        ----------
+        target_words (List[str]): List of words to test the clustering algorithm on.
+
+        context_size (int): Number of words to be considered around the target word when building
+            a co-occurrence array
+        """
+
         cluster_count = len(target_words)
 
+        # Add the reversed version of the target words to the target word list
         test_target_words = target_words + [word[::-1] for word in target_words]
+        # Save word indexes for faster lookup
         word_to_index = {word: index for index, word in enumerate(test_target_words)}
 
+        # Reverse all words in all lines with 50% probability
         lines = list(map(str.split, chain.from_iterable(self.texts)))
+        for index, line in enumerate(lines):
+            lines[index] = list(map(lambda word: word[::-1] if random() > 0.5 else word, line))
 
+        # Create clusters from the modified target words and text
         clusters = create_clusters(test_target_words, cluster_count, context_size, lines)
         correct_count = sum(1 for index, cluster in enumerate(clusters[:len(clusters) // 2])
             if cluster == clusters[word_to_index[test_target_words[index][::-1]]])
 
         print(f'Correct pairs: {correct_count}/{cluster_count}'
-            f', accuracy: {correct_count/cluster_count}')
+            f', average accuracy: {correct_count/cluster_count}')

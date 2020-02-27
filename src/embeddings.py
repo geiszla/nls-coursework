@@ -1,7 +1,7 @@
 """Embeddings using Continuous Bag-of-Word model
 Contains the `Embeddings` class representing word embeddings using a trainable CBOW model.
 
-> Proof-of-concept, not used in final program
+> Note: Only Proof-of-concept, not used in final program. Not tested, probably doesn't even work
 """
 
 from math import ceil
