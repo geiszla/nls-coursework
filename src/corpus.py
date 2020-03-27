@@ -7,6 +7,7 @@ from random import random
 from typing import List, Tuple
 
 from spacy.language import Language
+from nltk.stem.snowball import SnowballStemmer
 
 from utilities import get_neighouring_token_count, create_clusters, load_texts
 
@@ -69,7 +70,7 @@ class Corpus():
             nn_tokens += [token for token in text if token.tag_ == 'NN']
 
         # Calculate probabilities for VB tag
-        vb_race_count = len([token for token in vb_tokens if token.text == 'race'])
+        vb_race_count = sum(token for token in vb_tokens if token.text == 'race')
         vb_word_likelihood = vb_race_count / len(vb_tokens)
 
         dt_vb_probability = dt_vb_count / dt_count
@@ -85,7 +86,9 @@ class Corpus():
         return (vb_word_likelihood, dt_vb_probability, vb_in_probability), \
             (nn_word_likelihood, dt_nn_probability, nn_in_probability)
 
-    def test_clustering(self, target_words: List[str], context_size: int) -> None:
+    def test_clustering(
+        self, target_words: List[str], context_size: int, stemmer: SnowballStemmer = None
+    ) -> None:
         """Creates clusters from the given word list and tests its accuracy using pseudoword
             disambiguation on the corpus texts.
 
@@ -99,20 +102,20 @@ class Corpus():
 
         cluster_count = len(target_words)
 
-        # Add the reversed version of the target words to the target word list
-        test_target_words = target_words + [word[::-1] for word in target_words]
-        # Save word indexes for faster lookup
-        word_to_index = {word: index for index, word in enumerate(test_target_words)}
-
         # Reverse all words in all lines with 50% probability
         lines = list(map(str.split, chain.from_iterable(self.texts)))
         for index, line in enumerate(lines):
             lines[index] = list(map(lambda word: word[::-1] if random() > 0.5 else word, line))
 
+        # Add the reversed version of the target words to the target word list
+        test_target_words = target_words + [word[::-1] for word in target_words]
+        # Save word indexes for faster lookup
+        word_to_index = {word: index for index, word in enumerate(test_target_words)}
+
         # Create clusters from the modified target words and text
-        clusters = create_clusters(test_target_words, cluster_count, context_size, lines)
+        clusters = create_clusters(test_target_words, cluster_count, context_size, lines, stemmer)
         correct_count = sum(1 for index, cluster in enumerate(clusters[:len(clusters) // 2])
             if cluster == clusters[word_to_index[test_target_words[index][::-1]]])
 
-        print(f'Correct pairs: {correct_count}/{cluster_count}'
-            f', average accuracy: {correct_count/cluster_count}')
+        print(f'Correct pairs: \033[94m{correct_count}/{cluster_count}\033[0m'
+            f', average accuracy:  \033[94m{correct_count / cluster_count * 100}%\033[0m')

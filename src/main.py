@@ -5,8 +5,26 @@ This module should be run when evaluating coursework 1
 from typing import Dict, List
 
 import en_core_web_sm
+from nltk.stem.snowball import SnowballStemmer
 
 from corpus import Corpus
+
+
+def test_clustering_on_corpus(
+    corpus: Corpus, target_words: List[str], stemmer: SnowballStemmer
+) -> None:
+    print('Testing with full words...')
+    corpus.test_clustering(target_words, 2)
+    corpus.test_clustering(target_words, 4)
+    corpus.test_clustering(target_words, 10)
+
+    # Get the lemma of the word
+    word_stems = [stemmer.stem(word) for word in target_words]
+
+    print('\nTesting with word stems...')
+    corpus.test_clustering(word_stems, 2)
+    corpus.test_clustering(word_stems, 4)
+    corpus.test_clustering(word_stems, 10)
 
 
 if __name__ == '__main__':
@@ -48,16 +66,12 @@ if __name__ == '__main__':
     B_PATH = 'data/B_ntext'
     C_PATH = 'data/C_hw1-data'
 
-    # Create clusters from corpus B
-    B_CORPUS = Corpus([B_PATH], 'B')
-    B_CORPUS.test_clustering(TARGET_WORDS, 4)
+    # Create english stemmer
+    STEMMER = SnowballStemmer(language='english')
 
-    # Create clusters from corpus C
-    C_CORPUS = Corpus([C_PATH], 'C')
-    C_CORPUS.test_clustering(TARGET_WORDS, 4)
-
-    # Create clusters from corpus B and C concatenated
-    BC_CORPUS = Corpus([B_PATH, C_PATH], 'B and C')
-    BC_CORPUS.test_clustering(TARGET_WORDS, 4)
+    # Test clusters for corpus B, C and their combination
+    test_clustering_on_corpus(Corpus([B_PATH], 'B'), TARGET_WORDS, STEMMER)
+    test_clustering_on_corpus(Corpus([C_PATH], 'C'), TARGET_WORDS, STEMMER)
+    test_clustering_on_corpus(Corpus([B_PATH, C_PATH], 'B and C'), TARGET_WORDS, STEMMER)
 
     print('Exiting...')

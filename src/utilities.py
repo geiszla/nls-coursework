@@ -10,6 +10,7 @@ import numpy
 from nptyping import Array
 from sklearn.cluster import KMeans
 from spacy.language import Language
+from nltk.stem.snowball import SnowballStemmer
 
 
 # Public functions
@@ -66,7 +67,12 @@ def get_neighouring_token_count(first_tag: str, second_tag: str, text: List[Lang
 
 # Private functions
 
-def get_word_context(word_index: int, words: List[str], context_size: int) -> List[str]:
+def get_word_context(
+    word_index: int,
+    words: List[str],
+    context_size: int,
+    stemmer: SnowballStemmer = None
+) -> List[str]:
     """Get context of a word in a word list.
 
     Parameters
@@ -102,11 +108,18 @@ def get_word_context(word_index: int, words: List[str], context_size: int) -> Li
         start_index = start_index if start_index >= 0 else 0
 
     # Get items from start to end index not including the target word itself
-    return [words[index] for index in range(start_index, end_index + 1) if index != word_index]
+    context = [words[index] for index in range(start_index, end_index + 1) if index != word_index]
+
+    # If stemmer is passed, use it to get words' stems
+    return [stemmer(word) for word in context] if stemmer is not None else context
 
 
 def create_clusters(
-    target_words: List[str], cluster_count: int, context_size: int, lines: List[List[str]]
+    target_words: List[str],
+    cluster_count: int,
+    context_size: int,
+    lines: List[List[str]],
+    stemmer: SnowballStemmer = None
 ) -> Array[numpy.int32, None, None]:
     """Creates clusters from given words using their co-occurrence count as a metric.
 
@@ -130,11 +143,15 @@ def create_clusters(
     # Get all unique words (vocabulary)
     vocabulary = list(set(chain.from_iterable(lines)))
 
+    # If stemmer is passed, use it to get stems of words in vocabulary
+    if stemmer is not None:
+        vocabulary = [stemmer.stem(word) for word in vocabulary]
+
     # Store word indexes for faster lookups
     target_word_to_index = {word: index for index, word in enumerate(target_words)}
     vocabulary_word_to_index = {word: index for index, word in enumerate(vocabulary)}
 
-    print('Building co-occurrence array...')
+    print('\nBuilding co-occurrence array...')
 
     # Initiate a 2D numpy array for the word x word matrix filled with zeroes
     word_x_word_matrix = numpy.zeros((len(target_words), len(vocabulary)), numpy.int32)
@@ -143,7 +160,7 @@ def create_clusters(
     for line in lines:
         for index, word in enumerate(line):
             # Get context of current word
-            context = get_word_context(index, line, context_size)
+            context = get_word_context(index, line, context_size, stemmer)
 
             # If the word is among the target words
             if word in target_words:
@@ -153,5 +170,5 @@ def create_clusters(
                 # increment all co-occurrence counts for the context words
                 word_x_word_matrix[target_word_to_index[word], context_indexes] += 1
 
-    print('Clustering...')
+    print(f'Clustering (windows size: {context_size})...')
     return KMeans(cluster_count).fit_predict(word_x_word_matrix)
