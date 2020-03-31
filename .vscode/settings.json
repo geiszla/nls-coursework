@@ -8,5 +8,7 @@
   "python.linting.pylintEnabled": true,
   "python.linting.pylintArgs": [
     "--rcfile=setup.cfg"
-  ]
+  ],
+  "pyright.useLibraryCodeForTypes": true,
+  "pyright.disableLanguageServices": true
 }

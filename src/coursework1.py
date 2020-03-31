@@ -6,6 +6,7 @@ from typing import Dict, List
 
 import en_core_web_sm
 from nltk.stem.snowball import SnowballStemmer
+from spacy.language import Language
 
 from corpus import Corpus
 
@@ -27,21 +28,20 @@ def test_clustering_on_corpus(
     corpus.test_clustering(word_stems, 10)
 
 
-if __name__ == '__main__':
+def run_coursework():
     # Load model for POS tagging
     print('Loading tagger...')
-    TAGGER = en_core_web_sm.load()
+    tagger: Language = en_core_web_sm.load()
 
     # PART 1
     # Calculate word likelyhood and word transition probabilities
-    PROBABILITIES = Corpus(['data/A_inaugural'], 'A').calculate_vb_nn_probabilities(TAGGER)
-
-    probabilities: Dict[str, float] = {}
+    probabilities = Corpus(['data/A_inaugural'], 'A').calculate_vb_nn_probabilities(tagger)
+    cumulative_probabilities: Dict[str, float] = {}
 
     # Print results
     for index, (
         word_likelyhood, to_transition_likelihood, from_transition_likelihood
-    ) in enumerate(PROBABILITIES):
+    ) in enumerate(probabilities):
         tag = "VB" if index == 0 else "NN"
 
         print(f'\nWord likelyhood: {word_likelyhood}')
@@ -50,28 +50,32 @@ if __name__ == '__main__':
 
         disambiguation_probability = word_likelyhood * to_transition_likelihood \
             * from_transition_likelihood
-        probabilities[tag] = disambiguation_probability
+        cumulative_probabilities[tag] = disambiguation_probability
 
         print(f'{tag} disambiguation probability: {disambiguation_probability}')
 
-    PROBABLE_TAG = max(probabilities, key=probabilities.get)
-    print(f'\nThis word should most likely be tagged "{PROBABLE_TAG}".')
+    probable_tag = max(cumulative_probabilities, key=cumulative_probabilities.get)
+    print(f'\nThis word should most likely be tagged "{probable_tag}".')
 
     # PART 2
     # Load target words
-    TARGET_WORDS: List[str] = []
+    target_words: List[str] = []
     with open('data/target-words.txt') as word_file:
-        TARGET_WORDS += map(str.strip, word_file.readlines())
+        target_words += map(str.strip, word_file.readlines())
 
-    B_PATH = 'data/B_ntext'
-    C_PATH = 'data/C_hw1-data'
+    b_path = 'data/B_ntext'
+    c_path = 'data/C_hw1-data'
 
     # Create english stemmer
-    STEMMER = SnowballStemmer(language='english')
+    stemmer = SnowballStemmer(language='english')
 
     # Test clusters for corpus B, C and their combination
-    test_clustering_on_corpus(Corpus([B_PATH], 'B'), TARGET_WORDS, STEMMER)
-    test_clustering_on_corpus(Corpus([C_PATH], 'C'), TARGET_WORDS, STEMMER)
-    test_clustering_on_corpus(Corpus([B_PATH, C_PATH], 'B and C'), TARGET_WORDS, STEMMER)
+    test_clustering_on_corpus(Corpus([b_path], 'B'), target_words, stemmer)
+    test_clustering_on_corpus(Corpus([c_path], 'C'), target_words, stemmer)
+    test_clustering_on_corpus(Corpus([b_path, c_path], 'B and C'), target_words, stemmer)
 
     print('Exiting...')
+
+
+if __name__ == '__main__':
+    run_coursework()
