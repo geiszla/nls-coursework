@@ -3,14 +3,20 @@ This module contains utility functions to be used by other python scripts and cl
 """
 
 from itertools import chain
+import os
 from pathlib import Path
-from typing import Any, List, Union, cast
+import random
+import re
+from typing import Any, Dict, List, Tuple, Union, cast
 
 from nltk.stem.snowball import SnowballStemmer
 from nptyping import Array
 import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
+from torch import Tensor
+
+from typings import SentimentEntry, SentimentLexicon, SplitData
 
 # Public functions
 
@@ -28,17 +34,28 @@ def load_texts(data_path: str) -> List[List[str]]:
 
     texts: List[List[str]] = []
 
+    if (os.path.isfile(data_path)):
+        texts.append(__load_text(data_path))
+
     # Get all files recursively in the given directory
     for file_name in (path for path in Path(data_path).rglob('*') if path.is_file()):
-        with open(file_name, 'r') as input_file:
-            # Strip lines and remove empy ones
-            lines = [line for line in map(str.strip, input_file.readlines()) if len(line) > 0]
+        lines = __load_text(file_name)
 
-            # Add text if it has at least one line
-            if len(lines) > 0:
-                texts.append(lines)
+        # Add text if it has at least one line
+        if len(lines) > 0:
+            texts.append(lines)
 
     return texts
+
+
+def __load_text(file_name: Union[str, Path]) -> List[str]:
+    lines = []
+
+    with open(file_name, 'r') as input_file:
+        # Strip lines and remove empy ones
+        lines = [line for line in map(str.strip, input_file.readlines()) if len(line) > 0]
+
+    return lines
 
 
 def get_neighouring_token_count(first_tag: str, second_tag: str, text: List[Language]) -> int:
@@ -114,7 +131,7 @@ def get_word_context(
     context = [words[index] for index in range(start_index, end_index + 1) if index != word_index]
 
     # If stemmer is passed, use it to get words' stems
-    return [stemmer.stem(word) for word in context] if stemmer is not None else context
+    return [stemmer.stem(word) for word in context] if stemmer else context
 
 
 def create_clusters(
@@ -147,7 +164,7 @@ def create_clusters(
     vocabulary = list(set(chain.from_iterable(lines)))
 
     # If stemmer is passed, use it to get stems of words in vocabulary
-    if stemmer is not None:
+    if stemmer:
         vocabulary = [stemmer.stem(word) for word in vocabulary]
 
     # Store word indexes for faster lookups
@@ -177,4 +194,84 @@ def create_clusters(
     return cast(
         Array[numpy.int32, None, None],  # type: ignore
         KMeans(cluster_count).fit_predict(word_x_word_matrix)
+    )
+
+
+def load_sentiment_lexicon(path: str) -> Dict[str, Dict[str, str]]:
+    lexicon: Dict[str, Dict[str, str]] = {}
+
+    with open(path, 'r') as lexicon_file:
+        for line in lexicon_file:
+            word = ''
+            dictionary: Dict[str, str] = {}
+
+            for property in re.split(r'\s+', line):
+                if property == '' or '=' not in property:
+                    continue
+
+                [key, value] = property.split('=')
+
+                if key == 'word1':
+                    word = value
+                else:
+                    dictionary[key] = value
+
+            lexicon[word] = dictionary
+
+    return lexicon
+
+def classify_sentiment(
+    text: str,
+    lexicon: SentimentLexicon,
+    tagger: Language,
+    stemmer: SnowballStemmer,
+    is_use_stem: bool = True,
+    is_ignore_pos: bool = False,
+) -> int:
+    polarities: Dict[str, Dict[str, SentimentEntry]] = {'positive': {}, 'negative': {}}
+
+    pos_values = {
+        'adverb': 'ADV',
+        'noun': 'NOUN',
+        'verb': 'VERB',
+        'adj': 'ADJ',
+    }
+
+    for word_token in cast(Any, tagger(text)):
+        word = word_token.text
+        stemmed_word = stemmer.stem(word)
+
+        if (
+            (word in lexicon
+                and lexicon[word]['priorpolarity'] in ['positive', 'negative']
+                and (not is_ignore_pos and lexicon[word]['pos1'] == 'anypos'
+                    or pos_values[lexicon[word]['pos1']] == word_token.pos_))
+            or is_use_stem and stemmed_word in lexicon
+                and (is_ignore_pos or lexicon[stemmed_word]['stemmed1'] == 'y')
+        ):
+            polarities[lexicon[word]['priorpolarity']][word] = lexicon[word]
+
+    return 0 if len(polarities['positive']) > len(polarities['negative']) else 1
+
+
+def split_dataset(
+    batches: List[Tensor], labels: List[Tensor], training_fraction: float
+) -> SplitData:
+    # Shuffle images with their labels
+    shuffled = list(zip(batches, labels))
+    random.shuffle(shuffled)
+    shuffled_batches, shuffled_labels = cast(
+        Tuple[List[Tensor], List[Tensor]],
+        zip(*shuffled),
+    )
+
+    # Separate shuffled dataset to training and validation sets
+    sample_count = len(shuffled_batches)
+    training_count = int(sample_count * training_fraction)
+
+    return (
+        list(shuffled_batches[0:training_count]),
+        list(shuffled_labels[0:training_count]),
+        list(shuffled_batches[training_count:sample_count]),
+        list(shuffled_labels[training_count:sample_count])
     )

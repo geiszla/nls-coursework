@@ -2,25 +2,21 @@
 This module should be run when evaluating coursework 1
 """
 
-from typing import Dict, List
+from typing import Dict, List, cast
 
-import en_core_web_sm
 from nltk.stem.snowball import SnowballStemmer
-from spacy.language import Language
 
 from corpus import Corpus
 
 
-def test_clustering_on_corpus(
-    corpus: Corpus, target_words: List[str], stemmer: SnowballStemmer
-) -> None:
+def test_clustering_on_corpus(corpus: Corpus, target_words: List[str]) -> None:
     print('Testing with full words...')
     corpus.test_clustering(target_words, 2)
     corpus.test_clustering(target_words, 4)
     corpus.test_clustering(target_words, 10)
 
     # Get the lemma of the word
-    word_stems = [stemmer.stem(word) for word in target_words]
+    word_stems = [cast(SnowballStemmer, corpus.stemmer).stem(word) for word in target_words]
 
     print('\nTesting with word stems...')
     corpus.test_clustering(word_stems, 2)
@@ -29,13 +25,9 @@ def test_clustering_on_corpus(
 
 
 def run_coursework():
-    # Load model for POS tagging
-    print('Loading tagger...')
-    tagger: Language = en_core_web_sm.load()
-
     # PART 1
     # Calculate word likelyhood and word transition probabilities
-    probabilities = Corpus(['data/A_inaugural'], 'A').calculate_vb_nn_probabilities(tagger)
+    probabilities = Corpus('A', 'data/inaugural').calculate_vb_nn_probabilities()
     cumulative_probabilities: Dict[str, float] = {}
 
     # Print results
@@ -63,16 +55,18 @@ def run_coursework():
     with open('data/target-words.txt') as word_file:
         target_words += map(str.strip, word_file.readlines())
 
-    b_path = 'data/B_ntext'
-    c_path = 'data/C_hw1-data'
-
     # Create english stemmer
-    stemmer = SnowballStemmer(language='english')
+    b_corpus = Corpus('B', 'data/ntext')
+    tagger = b_corpus.get_tagger()
+    stemmer = b_corpus.get_stemmer()
+
+    c_corpus = Corpus('C', 'data/hw1-data', tagger=tagger, stemmer=stemmer)
+    b_c_corpus = Corpus('B and C', corpora=[b_corpus, c_corpus], tagger=tagger, stemmer=stemmer)
 
     # Test clusters for corpus B, C and their combination
-    test_clustering_on_corpus(Corpus([b_path], 'B'), target_words, stemmer)
-    test_clustering_on_corpus(Corpus([c_path], 'C'), target_words, stemmer)
-    test_clustering_on_corpus(Corpus([b_path, c_path], 'B and C'), target_words, stemmer)
+    test_clustering_on_corpus(b_corpus, target_words)
+    test_clustering_on_corpus(c_corpus, target_words)
+    test_clustering_on_corpus(b_c_corpus, target_words)
 
     print('Exiting...')
 

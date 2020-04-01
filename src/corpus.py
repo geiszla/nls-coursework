@@ -4,18 +4,30 @@ Contains the Corpus class, which represents a set of texts on which NLP operatio
 
 from itertools import chain
 from random import random
-from typing import Any, List, Tuple, Union, cast
+from typing import Any, List, Optional, Set, Tuple, Union, cast
 
+import en_core_web_sm
+import nltk
 from nltk.stem.snowball import SnowballStemmer
+from nltk.tag import StanfordNERTagger
+from sklearn.metrics import precision_recall_fscore_support
 from spacy.language import Language
+from tqdm import tqdm
 
-from utilities import create_clusters, get_neighouring_token_count, load_texts
-
+from typings import ClassificationMetrics, SentimentLexicon
+from utilities import classify_sentiment, create_clusters, get_neighouring_token_count, load_texts
 
 class Corpus():
     """Class, that represents a set of texts on which NLP operations can be performed."""
 
-    def __init__(self, data_paths: List[str], description: str):
+    def __init__(
+        self,
+        description: str,
+        data_paths: Optional[Union[List[str], str]] = None,
+        corpora: Optional[List['Corpus']] = None,
+        tagger: Optional[Language] = None,
+        stemmer: Optional[SnowballStemmer] = None,
+    ):
         """Creates a `Corpus` instance
 
         Parameters
@@ -27,12 +39,40 @@ class Corpus():
 
         print(f'\n===== Corpus: {description} =====')
 
-        # Load and join lines in each text and tag the produced texts
-        print('Loading texts...')
-        self.texts = list(chain.from_iterable(load_texts(data_path) for data_path in data_paths))
+        if data_paths and corpora:
+            print('Both text paths and corpora are specified. Merging them.')
+
+        texts: List[List[str]] = []
+        if data_paths:
+            # Load and join lines in each text and tag the produced texts
+            print('Loading texts...')
+
+            if isinstance(data_paths, str):
+                texts = load_texts(data_paths)
+            else:
+                texts = list(chain.from_iterable(load_texts(data_path) for data_path in data_paths))
+
+        if corpora:
+            texts += chain.from_iterable(corpus.texts for corpus in corpora)
+
+        self.texts: List[List[str]] = texts
+        self.tagger: Union[Language, None] = tagger
+        self.stemmer: Union[SnowballStemmer, None] = stemmer
+
+    def get_vocabulary(self) -> Set[str]:
+        if not self.tagger:
+            print('Error: please pass tagger to the Corpus\' constructor to tag the texts')
+            return Set()
+
+        tagged_texts: List[List[Any]] = []
+
+        for text in self.texts:
+            tagged_texts.append([self.tagger(line) for line in text])
+
+        return set(word.text for word in chain.from_iterable(tagged_texts))
 
     def calculate_vb_nn_probabilities(
-        self, tagger: Language
+        self
     ) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
         """Calculate the probabilities that an occurrence of the word "race" has the tag "VB"
             and the same for "NN".
@@ -54,6 +94,7 @@ class Corpus():
         nn_tokens: List[Language] = []
 
         print('Tagging texts...')
+        tagger = self.get_tagger()
         tagged_texts: List[Any] = [tagger(' '.join(text)) for text in self.texts]
 
         # Get word transition counts
@@ -122,3 +163,70 @@ class Corpus():
 
         print(f'Correct pairs: \033[94m{correct_count}/{cluster_count}\033[0m'
             + f', average accuracy:  \033[94m{correct_count / cluster_count * 100}%\033[0m')
+
+    def get_named_entities_default(self) -> List[List[Tuple[str, str]]]:
+        print('\nDownloading NLTK resources...')
+        nltk.download('punkt')
+        nltk.download('averaged_perceptron_tagger')
+        nltk.download('maxent_ne_chunker')
+        nltk.download('words')
+
+        print('\nExtracting named entities using the default tagger...')
+        entities: List[List[Any]] = []
+        for text in cast(Any, tqdm(self.texts)):
+            tagged_words = nltk.pos_tag(nltk.word_tokenize(' '.join(text)))
+            chunks: Any = nltk.ne_chunk(tagged_words)
+
+            text_entities = []
+            for chunk in chunks:
+                if type(chunk) is nltk.Tree:
+                    name = ''.join(leaf[0] for leaf in chunk.leaves())
+                    text_entities.append((name, chunk.label()))
+
+            entities.append(text_entities)
+
+        return entities
+
+    def get_named_entities_stanford(self) -> List[List[Tuple[str, str]]]:
+        tagger = StanfordNERTagger('english.all.3class.distsim.crf.ser.gz')
+
+        print('\nExtracting named entities using the Stanford tagger...')
+        entities = []
+        for text in cast(Any, tqdm(self.texts)):
+            entities.append(tagger.tag(' '.join(text)))
+
+        return entities
+
+    def get_baseline_sentiment_metrics(
+        self, sentiment_lexicon: SentimentLexicon
+    ) -> ClassificationMetrics:
+        tagger = self.get_tagger()
+        stemmer = self.get_stemmer()
+
+        # Assuming first text contains positive and second the negative samples
+        ground_truths = [1] * len(self.texts[0]) + [0] * len(self.texts[1])
+        baseline_predicitons = [classify_sentiment(line, sentiment_lexicon, tagger, stemmer)
+            for line in chain.from_iterable(self.texts)]
+
+        return cast(
+            ClassificationMetrics,
+            precision_recall_fscore_support(ground_truths, baseline_predicitons),
+        )
+
+    def get_tagger(self) -> Language:
+        if self.tagger:
+            return self.tagger
+
+        print('Loading tagger...')
+        self.tagger = en_core_web_sm.load()
+
+        return cast(Language, self.tagger)
+
+    def get_stemmer(self) -> SnowballStemmer:
+        if self.stemmer:
+            return self.stemmer
+
+        print('Loading stemmer...')
+        self.stemmer = SnowballStemmer(language='english')
+
+        return self.stemmer
