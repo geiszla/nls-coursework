@@ -4,12 +4,12 @@ Contains the Corpus class, which represents a set of texts on which NLP operatio
 
 from itertools import chain
 from random import random
-from typing import List, Tuple
+from typing import Any, List, Tuple, Union, cast
 
-from spacy.language import Language
 from nltk.stem.snowball import SnowballStemmer
+from spacy.language import Language
 
-from utilities import get_neighouring_token_count, create_clusters, load_texts
+from utilities import create_clusters, get_neighouring_token_count, load_texts
 
 
 class Corpus():
@@ -32,7 +32,7 @@ class Corpus():
         self.texts = list(chain.from_iterable(load_texts(data_path) for data_path in data_paths))
 
     def calculate_vb_nn_probabilities(
-        self, tagger
+        self, tagger: Language
     ) -> Tuple[Tuple[float, float, float], Tuple[float, float, float]]:
         """Calculate the probabilities that an occurrence of the word "race" has the tag "VB"
             and the same for "NN".
@@ -54,7 +54,7 @@ class Corpus():
         nn_tokens: List[Language] = []
 
         print('Tagging texts...')
-        tagged_texts = [tagger(' '.join(text)) for text in self.texts]
+        tagged_texts: List[Any] = [tagger(' '.join(text)) for text in self.texts]
 
         # Get word transition counts
         for text in tagged_texts:
@@ -70,14 +70,14 @@ class Corpus():
             nn_tokens += [token for token in text if token.tag_ == 'NN']
 
         # Calculate probabilities for VB tag
-        vb_race_count = sum(token for token in vb_tokens if token.text == 'race')
+        vb_race_count = sum(token for token in vb_tokens if cast(Any, token).text == 'race')
         vb_word_likelihood = vb_race_count / len(vb_tokens)
 
         dt_vb_probability = dt_vb_count / dt_count
         vb_in_probability = vb_in_count / len(vb_tokens)
 
         # Calculate probabilities for NN tag
-        nn_race_count = len([token for token in nn_tokens if token.text == 'race'])
+        nn_race_count = len([token for token in nn_tokens if cast(Any, token).text == 'race'])
         nn_word_likelihood = nn_race_count / len(nn_tokens)
 
         dt_nn_probability = dt_nn_count / dt_count
@@ -87,7 +87,10 @@ class Corpus():
             (nn_word_likelihood, dt_nn_probability, nn_in_probability)
 
     def test_clustering(
-        self, target_words: List[str], context_size: int, stemmer: SnowballStemmer = None
+        self,
+        target_words: List[str],
+        context_size: int,
+        stemmer: Union[SnowballStemmer, None] = None
     ) -> None:
         """Creates clusters from the given word list and tests its accuracy using pseudoword
             disambiguation on the corpus texts.
@@ -118,4 +121,4 @@ class Corpus():
             if cluster == clusters[word_to_index[test_target_words[index][::-1]]])
 
         print(f'Correct pairs: \033[94m{correct_count}/{cluster_count}\033[0m'
-            f', average accuracy:  \033[94m{correct_count / cluster_count * 100}%\033[0m')
+            + f', average accuracy:  \033[94m{correct_count / cluster_count * 100}%\033[0m')

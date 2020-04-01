@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "nls-coursework"
+version = "0.1.0"
+description = "Coursework for Neural Language Systems"
+
+license = "MIT"
+authors = ["András Geiszl"]
+
+readme = 'README.md'
+repository = "https://github.com/geiszla/nls-coursework"
+homepage = "https://github.com/geiszla/nls-coursework"
+
+[tool.poetry.dependencies]
+python = "~3.7"
+en-core-web-sm-mirror = "^2.2.5"
+nltk = "^3.4.5"
+numpy = "^1.18.2"
+sklearn = "^0.0"
+spacy = "^2.2.4"
+torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl", platform="Windows"}
+# torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-linux_x86_64.whl", platform="Linux"}
+# torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.4.0-cp37-none-macosx_10_9_x86_64.whl", platform="Darwin"}
+
+[tool.poetry.dev-dependencies]
+flake8 = "^3.7.9"
+mypy = "^0.770"
+nptyping = "^0.3.1"
+pylint = "^2.4.4"
+torch = {url = "https://download.pytorch.org/whl/cu101/torch-1.4.0-cp37-cp37m-win_amd64.whl", platform="Windows"}
+# torch = {url = "https://download.pytorch.org/whl/cu101/torch-1.4.0-cp37-cp37m-linux_x86_64.whl", platform="Linux"}
+
+[tool.poetry.extras]
+torch-windows = ["https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl"]
+torch-linux = ["https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-linux_x86_64.whl"]
+torch-mac = ["https://download.pytorch.org/whl/cpu/torch-1.4.0-cp37-none-macosx_10_9_x86_64.whl"]

@@ -6,11 +6,12 @@ Contains the `Embeddings` class representing word embeddings using a trainable C
 
 from math import ceil
 from random import random
-from typing import cast, List, Tuple
+from typing import Any, List, Tuple, cast
 
-import numpy
 from nptyping import Array
+import numpy
 from sklearn.cluster import KMeans
+
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -26,8 +27,8 @@ class CBOW(nn.Module):
         self.linear2 = nn.Linear(128, vocabulary_size)
         self.activation_function2 = nn.LogSoftmax(-1)
 
-    def forward(self, inputs: Tensor):  # type: ignore # pylint: disable=arguments-differ
-        embedding = cast(Tensor, sum(self.embeddings(inputs))).view(1, -1)
+    def forward(self, *input: Tensor, **kwargs: Any):
+        embedding = cast(Tensor, sum(self.embeddings(*input))).view(1, -1)
         output = self.linear1(embedding)
         output = self.activation_function1(output)
         output = self.linear2(output)
@@ -35,8 +36,8 @@ class CBOW(nn.Module):
 
         return output
 
-    def get_embedding(self, word_index: int) -> Array[float]:
-        word_tensor = torch.LongTensor([word_index])  # type: ignore
+    def get_embedding(self, word_index: int) -> Tensor:   # type: ignore
+        word_tensor = cast(Any, torch).LongTensor([word_index])
         return self.embeddings(word_tensor).view(1, -1)
 
 
@@ -74,13 +75,10 @@ class Embeddings():
             for context_vector, target in data:
                 self.model.zero_grad()
 
-                log_probabilities = self.model(context_vector)
+                log_probabilities: Any = self.model(context_vector)
                 loss = loss_function(
                     log_probabilities,
-                    torch.tensor(  # pylint: disable=not-callable
-                        [self.word_to_index[target]],
-                        dtype=torch.long
-                    )
+                    torch.tensor([self.word_to_index[target]], dtype=torch.long)
                 )
                 loss.backward()
                 optimizer.step()
@@ -89,14 +87,20 @@ class Embeddings():
 
     def predict(self, context: List[str]) -> str:
         context_vector = self.__create_context_vector(context)
-        [probabilities] = self.model(context_vector).data.numpy()
+        probabilities: numpy.ndarray = self.model(context_vector).data.numpy()
 
-        most_probable_index = probabilities.index(max(probabilities))
+        most_probable_index = probabilities.index(max(probabilities[0]))
         return self.vocabulary[most_probable_index]
 
-    def cluster(self, words: List[str], cluster_count: int) -> Array[numpy.int32]:
+    def cluster(
+        self, words: List[str], cluster_count: int
+    ) -> Array[numpy.int32, None, None]:  # type: ignore
         word_embeddings = [self.model.get_embedding(self.word_to_index[word]) for word in words]
-        return KMeans(cluster_count).fit_predict(word_embeddings)
+
+        return cast(
+            Array[numpy.int32, None, None],  # type: ignore
+            KMeans(cluster_count).fit_predict(word_embeddings)
+        )
 
     def test(self, cluster_count: int) -> None:
         target_words = [word[::-1] for word in self.vocabulary if random() > 0.5]

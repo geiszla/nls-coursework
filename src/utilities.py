@@ -4,14 +4,13 @@ This module contains utility functions to be used by other python scripts and cl
 
 from itertools import chain
 from pathlib import Path
-from typing import List
+from typing import Any, List, Union, cast
 
-import numpy
+from nltk.stem.snowball import SnowballStemmer
 from nptyping import Array
+import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
-from nltk.stem.snowball import SnowballStemmer
-
 
 # Public functions
 
@@ -62,7 +61,8 @@ def get_neighouring_token_count(first_tag: str, second_tag: str, text: List[Lang
     # For all token with the correct tag, get the following token, examine its tag and count them
     # if they match the given tags
     return sum(1 for index, token in enumerate(text)
-        if token.tag_ == first_tag and index + 1 < len(text) and text[index + 1].tag_ == second_tag)
+        if cast(Any, token).tag_ == first_tag and index + 1 < len(text)
+            and cast(Any, text[index + 1]).tag_ == second_tag)
 
 
 # Private functions
@@ -71,7 +71,7 @@ def get_word_context(
     word_index: int,
     words: List[str],
     context_size: int,
-    stemmer: SnowballStemmer = None
+    stemmer: Union[SnowballStemmer, None] = None
 ) -> List[str]:
     """Get context of a word in a word list.
 
@@ -82,6 +82,9 @@ def get_word_context(
     words (List[str]): Word list to look for `word_index` and the context in.
 
     context_size (int): Number of words to get surrounding the target word (`word_index`)
+
+    stemmer (SnowballStemmer, Optional): The stemmer to use to get stems. If not passed, the whole
+        word will be used.
 
     Returns
     -------
@@ -111,7 +114,7 @@ def get_word_context(
     context = [words[index] for index in range(start_index, end_index + 1) if index != word_index]
 
     # If stemmer is passed, use it to get words' stems
-    return [stemmer(word) for word in context] if stemmer is not None else context
+    return [stemmer.stem(word) for word in context] if stemmer is not None else context
 
 
 def create_clusters(
@@ -119,8 +122,8 @@ def create_clusters(
     cluster_count: int,
     context_size: int,
     lines: List[List[str]],
-    stemmer: SnowballStemmer = None
-) -> Array[numpy.int32, None, None]:
+    stemmer: Union[SnowballStemmer, None] = None
+) -> Array[numpy.int32, None, None]:  # type: ignore
     """Creates clusters from given words using their co-occurrence count as a metric.
 
     Args
@@ -171,4 +174,7 @@ def create_clusters(
                 word_x_word_matrix[target_word_to_index[word], context_indexes] += 1
 
     print(f'Clustering (windows size: {context_size})...')
-    return KMeans(cluster_count).fit_predict(word_x_word_matrix)
+    return cast(
+        Array[numpy.int32, None, None],  # type: ignore
+        KMeans(cluster_count).fit_predict(word_x_word_matrix)
+    )
