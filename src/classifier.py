@@ -105,25 +105,25 @@ class Classifier():
         ):
             training_data = numpy.array(data)[train_indices]
             training_labels = numpy.array(labels)[train_indices]
-            evaluation_data = numpy.array(data)[test_indices]
-            evaluation_labels = numpy.array(labels)[test_indices]
+            validation_data = numpy.array(data)[test_indices]
+            validation_labels = numpy.array(labels)[test_indices]
 
-            best_valid_loss = float('inf')
+            best_validation_loss = float('inf')
 
             for epoch in range(50):
                 start_time = time.time()
 
                 training_loss, training_accuracy = self.train(training_data, training_labels)
                 validation_loss, validation_accuracy = self.evaluate(
-                    evaluation_data,
-                    evaluation_labels
+                    validation_data,
+                    validation_labels
                 )
 
                 epoch_mins = time.time() - start_time
                 epoch_secs = int(epoch_mins - (int(epoch_mins / 60) * 60))
 
-                if validation_loss < best_valid_loss:
-                    best_valid_loss = validation_loss
+                if validation_loss < best_validation_loss:
+                    best_validation_loss = validation_loss
                     accuracies.append(validation_accuracy)
 
                 print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')

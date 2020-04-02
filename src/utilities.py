@@ -5,16 +5,18 @@ This module contains utility functions to be used by other python scripts and cl
 from itertools import chain
 import os
 from pathlib import Path
+import random
 import re
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, Tuple, Union, cast
 
 from nltk.stem.snowball import SnowballStemmer
 from nptyping import Array
 import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
+from torch import Tensor
 
-from typings import SentimentEntry, SentimentLexicon
+from typings import SentimentEntry, SentimentLexicon, SplitData
 
 # Public functions
 
@@ -248,3 +250,25 @@ def classify_sentiment(
             polarities[lexicon[word]['priorpolarity']][word] = lexicon[word]
 
     return 0 if len(polarities['positive']) > len(polarities['negative']) else 1
+
+def split_dataset(
+    batches: List[Tensor], labels: List[Tensor], training_fraction: float
+) -> SplitData:
+    # Shuffle images with their labels
+    shuffled = list(zip(batches, labels))
+    random.shuffle(shuffled)
+    shuffled_batches, shuffled_labels = cast(
+        Tuple[List[Tensor], List[Tensor]],
+        zip(*shuffled),
+    )
+
+    # Separate shuffled dataset to training and validation sets
+    sample_count = len(shuffled_batches)
+    training_count = int(sample_count * training_fraction)
+
+    return (
+        list(shuffled_batches[0:training_count]),
+        list(shuffled_labels[0:training_count]),
+        list(shuffled_batches[training_count:sample_count]),
+        list(shuffled_labels[training_count:sample_count])
+    )
