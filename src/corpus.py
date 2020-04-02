@@ -2,19 +2,20 @@
 Contains the Corpus class, which represents a set of texts on which NLP operations can be performed.
 """
 
+from collections import Counter
 from itertools import chain
 from random import random
-from typing import Any, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import en_core_web_sm
 import nltk
 from nltk.stem.snowball import SnowballStemmer
 from nltk.tag import StanfordNERTagger
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import accuracy_score
 from spacy.language import Language
 from tqdm import tqdm
 
-from typings import ClassificationMetrics, SentimentLexicon
+from typings import SentimentLexicon
 from utilities import classify_sentiment, create_clusters, get_neighouring_token_count, load_texts
 
 class Corpus():
@@ -59,6 +60,24 @@ class Corpus():
         self.tagger: Union[Language, None] = tagger
         self.stemmer: Union[SnowballStemmer, None] = stemmer
 
+    def get_tagger(self) -> Language:
+        if self.tagger:
+            return self.tagger
+
+        print('Loading tagger...')
+        self.tagger = en_core_web_sm.load()
+
+        return cast(Language, self.tagger)
+
+    def get_stemmer(self) -> SnowballStemmer:
+        if self.stemmer:
+            return self.stemmer
+
+        print('Loading stemmer...')
+        self.stemmer = SnowballStemmer(language='english')
+
+        return self.stemmer
+
     def get_vocabulary(self) -> Set[str]:
         if not self.tagger:
             print('Error: please pass tagger to the Corpus\' constructor to tag the texts')
@@ -70,6 +89,39 @@ class Corpus():
             tagged_texts.append([self.tagger(line) for line in text])
 
         return set(word.text for word in chain.from_iterable(tagged_texts))
+
+    def get_named_entities_default(self) -> List[List[Tuple[str, str]]]:
+        print('\nDownloading NLTK resources...')
+        nltk.download('punkt')
+        nltk.download('averaged_perceptron_tagger')
+        nltk.download('maxent_ne_chunker')
+        nltk.download('words')
+
+        print('\nExtracting named entities using the default tagger...')
+        entities: List[List[Any]] = []
+        for text in cast(Any, tqdm(self.texts)):
+            tagged_words = nltk.pos_tag(nltk.word_tokenize(' '.join(text)))
+            chunks: Any = nltk.ne_chunk(tagged_words)
+
+            text_entities = []
+            for chunk in chunks:
+                if type(chunk) is nltk.Tree:
+                    name = ''.join(leaf[0] for leaf in chunk.leaves())
+                    text_entities.append((name, chunk.label()))
+
+            entities.append(text_entities)
+
+        return entities
+
+    def get_named_entities_stanford(self) -> List[List[Tuple[str, str]]]:
+        tagger = StanfordNERTagger('english.all.3class.distsim.crf.ser.gz')
+
+        print('\nExtracting named entities using the Stanford tagger...')
+        entities = []
+        for text in cast(Any, tqdm(self.texts)):
+            entities.append(tagger.tag(' '.join(text)))
+
+        return entities
 
     def calculate_vb_nn_probabilities(
         self
@@ -164,69 +216,37 @@ class Corpus():
         print(f'Correct pairs: \033[94m{correct_count}/{cluster_count}\033[0m'
             + f', average accuracy:  \033[94m{correct_count / cluster_count * 100}%\033[0m')
 
-    def get_named_entities_default(self) -> List[List[Tuple[str, str]]]:
-        print('\nDownloading NLTK resources...')
-        nltk.download('punkt')
-        nltk.download('averaged_perceptron_tagger')
-        nltk.download('maxent_ne_chunker')
-        nltk.download('words')
+    def build_sentiment_lexicon(self, seed: Dict[str, str]) -> Dict[str, str]:
+        tagger = self.get_tagger()
 
-        print('\nExtracting named entities using the default tagger...')
-        entities: List[List[Any]] = []
-        for text in cast(Any, tqdm(self.texts)):
-            tagged_words = nltk.pos_tag(nltk.word_tokenize(' '.join(text)))
-            chunks: Any = nltk.ne_chunk(tagged_words)
+        found_words: List[Tuple[str, str]] = []
+        for text in self.texts:
+            for line in text:
+                words = [word.text for word in cast(List[Any], tagger(line))]
 
-            text_entities = []
-            for chunk in chunks:
-                if type(chunk) is nltk.Tree:
-                    name = ''.join(leaf[0] for leaf in chunk.leaves())
-                    text_entities.append((name, chunk.label()))
+                for index, word in enumerate(words):
+                    if word in seed and index + 2 < len(words):
+                        if words[index + 1] == 'and':
+                            found_words.append((words[index + 2], seed[word]))
+                        if words[index + 1] == 'but':
+                            found_words.append((words[index + 2], (
+                                'positive' if seed[word] == 'negative' else 'negative'
+                            )))
 
-            entities.append(text_entities)
+        dictionary: Dict[str, str] = {}
+        for word_tuple in dict(Counter(found_words)):
+            if word_tuple[0] not in dictionary:
+                dictionary[word_tuple[0]] = word_tuple[1]
 
-        return entities
+        return dictionary
 
-    def get_named_entities_stanford(self) -> List[List[Tuple[str, str]]]:
-        tagger = StanfordNERTagger('english.all.3class.distsim.crf.ser.gz')
-
-        print('\nExtracting named entities using the Stanford tagger...')
-        entities = []
-        for text in cast(Any, tqdm(self.texts)):
-            entities.append(tagger.tag(' '.join(text)))
-
-        return entities
-
-    def get_baseline_sentiment_metrics(
-        self, sentiment_lexicon: SentimentLexicon
-    ) -> ClassificationMetrics:
+    def get_baseline_sentiment_metrics(self, sentiment_lexicon: SentimentLexicon) -> float:
         tagger = self.get_tagger()
         stemmer = self.get_stemmer()
 
         # Assuming first text contains positive and second the negative samples
-        ground_truths = [1] * len(self.texts[0]) + [0] * len(self.texts[1])
+        labels = [1] * len(self.texts[0]) + [0] * len(self.texts[1])
         baseline_predicitons = [classify_sentiment(line, sentiment_lexicon, tagger, stemmer)
             for line in chain.from_iterable(self.texts)]
 
-        return cast(
-            ClassificationMetrics,
-            precision_recall_fscore_support(ground_truths, baseline_predicitons),
-        )
-
-    def get_tagger(self) -> Language:
-        if self.tagger:
-            return self.tagger
-
-        print('Loading tagger...')
-        self.tagger = en_core_web_sm.load()
-
-        return cast(Language, self.tagger)
-
-    def get_stemmer(self) -> SnowballStemmer:
-        if self.stemmer:
-            return self.stemmer
-
-        print('Loading stemmer...')
-        self.stemmer = SnowballStemmer(language='english')
-
-        return self.stemmer
+        return cast(float, accuracy_score(labels, baseline_predicitons))

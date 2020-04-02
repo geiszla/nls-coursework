@@ -5,18 +5,16 @@ This module contains utility functions to be used by other python scripts and cl
 from itertools import chain
 import os
 from pathlib import Path
-import random
 import re
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Union, cast
 
 from nltk.stem.snowball import SnowballStemmer
 from nptyping import Array
 import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
-from torch import Tensor
 
-from typings import SentimentEntry, SentimentLexicon, SplitData
+from typings import SentimentEntry, SentimentLexicon
 
 # Public functions
 
@@ -82,8 +80,6 @@ def get_neighouring_token_count(first_tag: str, second_tag: str, text: List[Lang
             and cast(Any, text[index + 1]).tag_ == second_tag)
 
 
-# Private functions
-
 def get_word_context(
     word_index: int,
     words: List[str],
@@ -131,7 +127,7 @@ def get_word_context(
     context = [words[index] for index in range(start_index, end_index + 1) if index != word_index]
 
     # If stemmer is passed, use it to get words' stems
-    return [stemmer.stem(word) for word in context] if stemmer else context
+    return [cast(Any, stemmer).stem(word) for word in context] if stemmer else context
 
 
 def create_clusters(
@@ -165,7 +161,7 @@ def create_clusters(
 
     # If stemmer is passed, use it to get stems of words in vocabulary
     if stemmer:
-        vocabulary = [stemmer.stem(word) for word in vocabulary]
+        vocabulary = [cast(Any, stemmer).stem(word) for word in vocabulary]
 
     # Store word indexes for faster lookups
     target_word_to_index = {word: index for index, word in enumerate(target_words)}
@@ -239,7 +235,7 @@ def classify_sentiment(
 
     for word_token in cast(Any, tagger(text)):
         word = word_token.text
-        stemmed_word = stemmer.stem(word)
+        stemmed_word = cast(Any, stemmer).stem(word)
 
         if (
             (word in lexicon
@@ -252,26 +248,3 @@ def classify_sentiment(
             polarities[lexicon[word]['priorpolarity']][word] = lexicon[word]
 
     return 0 if len(polarities['positive']) > len(polarities['negative']) else 1
-
-
-def split_dataset(
-    batches: List[Tensor], labels: List[Tensor], training_fraction: float
-) -> SplitData:
-    # Shuffle images with their labels
-    shuffled = list(zip(batches, labels))
-    random.shuffle(shuffled)
-    shuffled_batches, shuffled_labels = cast(
-        Tuple[List[Tensor], List[Tensor]],
-        zip(*shuffled),
-    )
-
-    # Separate shuffled dataset to training and validation sets
-    sample_count = len(shuffled_batches)
-    training_count = int(sample_count * training_fraction)
-
-    return (
-        list(shuffled_batches[0:training_count]),
-        list(shuffled_labels[0:training_count]),
-        list(shuffled_batches[training_count:sample_count]),
-        list(shuffled_labels[training_count:sample_count])
-    )

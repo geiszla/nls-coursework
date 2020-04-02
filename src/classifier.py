@@ -5,9 +5,12 @@ Contains the `Embeddings` class representing word embeddings using a trainable C
 """
 
 from math import ceil
+from statistics import mean
+import time
 from typing import Any, Dict, List, Set, Tuple, cast
 
 import numpy
+from sklearn.model_selection import KFold
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -92,6 +95,44 @@ class Classifier():
                 epoch_accuracy += accuracy.item()
 
         return epoch_loss / len(batches), epoch_accuracy / len(batches)
+
+    def test(self, data: List[Tensor], labels: List[Tensor]) -> float:
+        kfold = KFold(n_splits=10)
+
+        accuracies: List[float] = []
+        for train_indices, test_indices in cast(
+            List[Tuple[List[int], List[int]]], kfold.split(data)
+        ):
+            training_data = numpy.array(data)[train_indices]
+            training_labels = numpy.array(labels)[train_indices]
+            evaluation_data = numpy.array(data)[test_indices]
+            evaluation_labels = numpy.array(labels)[test_indices]
+
+            best_valid_loss = float('inf')
+
+            for epoch in range(50):
+                start_time = time.time()
+
+                training_loss, training_accuracy = self.train(training_data, training_labels)
+                validation_loss, validation_accuracy = self.evaluate(
+                    evaluation_data,
+                    evaluation_labels
+                )
+
+                epoch_mins = time.time() - start_time
+                epoch_secs = int(epoch_mins - (int(epoch_mins / 60) * 60))
+
+                if validation_loss < best_valid_loss:
+                    best_valid_loss = validation_loss
+                    accuracies.append(validation_accuracy)
+
+                print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
+                print(f'\tTrain Loss: {training_loss:.3f}'
+                    + f' | Train Acc: {training_accuracy * 100:.2f}%')
+                print(f'\t Val. Loss: {validation_loss:.3f}'
+                    + f' |  Val. Acc: {validation_accuracy * 100:.2f}%')
+
+        return mean(accuracies)
 
     def predict(self, context: List[str]) -> numpy.ndarray:
         context_vector = self.__create_context_vector(context)

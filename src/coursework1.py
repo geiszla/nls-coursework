@@ -2,9 +2,7 @@
 This module should be run when evaluating coursework 1
 """
 
-from typing import Dict, List, cast
-
-from nltk.stem.snowball import SnowballStemmer
+from typing import Any, Dict, List, cast
 
 from corpus import Corpus
 
@@ -16,7 +14,7 @@ def test_clustering_on_corpus(corpus: Corpus, target_words: List[str]) -> None:
     corpus.test_clustering(target_words, 10)
 
     # Get the lemma of the word
-    word_stems = [cast(SnowballStemmer, corpus.stemmer).stem(word) for word in target_words]
+    word_stems = [cast(Any, corpus.stemmer).stem(word) for word in target_words]
 
     print('\nTesting with word stems...')
     corpus.test_clustering(word_stems, 2)
