@@ -381,7 +381,7 @@ class Corpus():
         labels = [1] * len(self.texts[0]) + [0] * len(self.texts[1])
         # Classify the sentiment of each line in the texts using the given sentiment lexicon
         baseline_predicitons = [classify_sentiment(line, sentiment_lexicon, tagger, stemmer)
-            for line in chain.from_iterable(self.texts)]
+            for line in cast(List[str], tqdm(chain.from_iterable(self.texts)))]
 
         # Get the accuracy of the sentiment classification
         return cast(float, accuracy_score(labels, baseline_predicitons))

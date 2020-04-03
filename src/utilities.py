@@ -13,7 +13,6 @@ from nptyping import Array
 import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
-from tqdm import tqdm
 
 from typings import SentimentEntry, SentimentLexicon
 
@@ -226,7 +225,7 @@ def classify_sentiment(
         'adj': 'ADJ',
     }
 
-    for word_token in cast(Any, tqdm(cast(Any, tagger(text)))):
+    for word_token in cast(Any, tagger(text)):
         word = word_token.text
         stemmed_word = cast(Any, stemmer).stem(word)
 
