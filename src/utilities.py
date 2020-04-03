@@ -86,8 +86,8 @@ def get_word_context(
     word_index: int,
     words: List[str],
     context_size: int,
-    stemmer: Union[SnowballStemmer, None] = None
-) -> List[str]:
+    stemmer: Union[SnowballStemmer, None] = None,
+) -> List[Any]:
     """Get context of a word in a word list.
 
     Parameters
@@ -125,7 +125,7 @@ def get_word_context(
         start_index = start_index - (context_size - current_size)
         start_index = start_index if start_index >= 0 else 0
 
-    # Get items from start to end index not including the target word itself
+    # Get items from start to end index not including the target word itself (if desired)
     context = [words[index] for index in range(start_index, end_index + 1) if index != word_index]
 
     # If stemmer is passed, use it to get words' stems

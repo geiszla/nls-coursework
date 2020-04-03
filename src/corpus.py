@@ -57,6 +57,8 @@ class Corpus():
             texts += chain.from_iterable(corpus.texts for corpus in corpora)
 
         self.texts: List[List[str]] = texts
+        self.tagged_texts: Union[List[Any], None] = None
+
         self.tagger: Union[Language, None] = tagger
         self.stemmer: Union[SnowballStemmer, None] = stemmer
 
@@ -78,17 +80,25 @@ class Corpus():
 
         return self.stemmer
 
-    def get_vocabulary(self) -> Set[str]:
-        if not self.tagger:
-            print('Error: please pass tagger to the Corpus\' constructor to tag the texts')
-            return Set()
+    def get_tagged_texts(self) -> List[List[Any]]:
+        if self.tagged_texts:
+            return self.tagged_texts
 
+        print('Tokenizing and tagging texts...')
+
+        tagger = self.get_tagger()
         tagged_texts: List[List[Any]] = []
 
         for text in self.texts:
-            tagged_texts.append([self.tagger(line) for line in text])
+            tagged_texts.append([tagger(line) for line in cast(Any, tqdm(text))])
 
-        return set(word.text for word in chain.from_iterable(tagged_texts))
+        self.tagged_texts = tagged_texts
+        return self.tagged_texts
+
+    def get_vocabulary(self) -> Set[str]:
+        tagged_texts = self.get_tagged_texts()
+
+        return set(word.text for word in chain.from_iterable(chain.from_iterable(tagged_texts)))
 
     def get_named_entities_default(self) -> List[List[Tuple[str, str]]]:
         print('\nDownloading NLTK resources...')

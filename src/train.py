@@ -1,12 +1,13 @@
 from itertools import chain
+import random
 import time
-from typing import Any, cast
+from typing import List, Tuple, cast
 
 from classifier import Classifier
 from corpus import Corpus
+from sklearn.model_selection import KFold
 import torch
-
-from utilities import split_dataset
+from torch import Tensor
 
 def train_classifier():
     positive_review_corpus = Corpus(
@@ -16,43 +17,78 @@ def train_classifier():
     negative_review_corpus = Corpus(
         'Negative Movie Reviews',
         ['data/rt-polaritydata/rt-polarity.neg'],
+        tagger=positive_review_corpus.get_tagger(),
+        stemmer=positive_review_corpus.get_stemmer(),
     )
+
+    positive_texts = positive_review_corpus.get_tagged_texts()
+    negative_texts = negative_review_corpus.get_tagged_texts()
 
     vocabulary = positive_review_corpus.get_vocabulary().union(
-        negative_review_corpus.get_vocabulary(),
+        negative_review_corpus.get_vocabulary()
     )
-    classifier = Classifier(vocabulary, 100, 4)
+    classifier = Classifier(vocabulary, 100)
 
-    positive_count = len(positive_review_corpus.texts)
-    negative_count = len(negative_review_corpus.texts)
-
-    texts = positive_review_corpus.texts + negative_review_corpus.texts
-    data = classifier.preprocess_data(list(chain.from_iterable(texts)))
-
-    training_data, training_labels, validation_data, validation_labels = split_dataset(
-        data,
-        cast(Any, torch).IntTensor([0] * positive_count + [1] * negative_count),
-        0.75,
+    print('\nPreprocessing data...')
+    processed_data, processed_labels = classifier.preprocess_data(
+        list(chain.from_iterable(positive_texts + negative_texts)),
+        [0] * len(positive_texts[0]) + [1] * len(negative_texts[0]),
     )
 
-    best_valid_loss = float('inf')
+    shuffled = list(zip(processed_data, processed_labels))
+    random.shuffle(shuffled)
+    data, labels = cast(
+        Tuple[List[Tensor], List[Tensor]],
+        zip(*shuffled),
+    )
 
-    for epoch in range(50):
-        start_time = time.time()
+    kfold = KFold(5, shuffle=True)
+    cumulative_accuracy = 0.0
 
-        train_loss, train_acc = classifier.train(training_data, training_labels)
-        valid_loss, valid_acc = classifier.evaluate(validation_data, validation_labels)
+    print('\nTraining...')
+    for training_indices, validation_indices in cast(
+        List[Tuple[List[int], List[int]]],
+        kfold.split(data, labels),
+    ):
+        classifier = Classifier(vocabulary, 100)
+        optimizer = torch.optim.Adam(classifier.model.parameters())
+        best_validation_loss = float('inf')
 
-        epoch_mins = time.time() - start_time
-        epoch_secs = int(epoch_mins - (int(epoch_mins / 60) * 60))
+        training_data = [data[index] for index in training_indices]
+        training_labels = [labels[index] for index in training_indices]
+        validation_data = [data[index] for index in validation_indices]
+        validation_labels = [labels[index] for index in validation_indices]
 
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(classifier.model.state_dict(), 'sentiment_rnn.pt')
+        for epoch in range(5):
+            start_time = time.time()
 
-        print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
-        print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}%')
+            training_loss, train_accuracy = classifier.train(
+                training_data,
+                training_labels,
+                optimizer
+            )
+
+            validation_loss, validation_accuracy = classifier.evaluate(
+                validation_data,
+                validation_labels
+            )
+
+            epoch_mins = time.time() - start_time
+            epoch_secs = int(epoch_mins - (int(epoch_mins / 60) * 60))
+
+            if validation_loss < best_validation_loss:
+                best_validation_loss = validation_loss
+                torch.save(classifier.model.state_dict(), 'sentiment_bow.pt')
+
+                if epoch == 5:
+                    cumulative_accuracy += validation_accuracy
+
+            print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
+            print(f'\tTrain Loss: {training_loss:.3f} | Train Acc: {train_accuracy * 100:.2f}%')
+            print(f'\t Val. Loss: {validation_loss:.3f}'
+                + f' |  Val. Acc: {validation_accuracy * 100:.2f}%\n')
+
+    print(f'Average accuracy across folds: {cumulative_accuracy / 5}')
 
 
 if __name__ == '__main__':

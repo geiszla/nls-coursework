@@ -17,21 +17,17 @@ nltk = "^3.4.5"
 numpy = "^1.18.2"
 sklearn = "^0.0"
 spacy = "^2.2.4"
-# torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl", platform="Windows"}
-# torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-linux_x86_64.whl", platform="Linux"}
-# torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.4.0-cp37-none-macosx_10_9_x86_64.whl", platform="Darwin"}
-
 tqdm = "^4.44.1"
 stanza = "^1.0.0"
+
 [tool.poetry.dev-dependencies]
 flake8 = "^3.7.9"
 mypy = "^0.770"
 nptyping = "^0.3.1"
 pylint = "^2.4.4"
-torch = {url = "https://download.pytorch.org/whl/cu101/torch-1.4.0-cp37-cp37m-win_amd64.whl", platform="Windows"}
-# torch = {url = "https://download.pytorch.org/whl/cu101/torch-1.4.0-cp37-cp37m-linux_x86_64.whl", platform="Linux"}
+tsalib = "^0.2.1"
 
 [tool.poetry.extras]
-torch-windows = ["https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl"]
-torch-linux = ["https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-linux_x86_64.whl"]
+torch-windows = ["https://download.pytorch.org/whl/cu101/torch-1.4.0-cp37-cp37m-win_amd64.whl"]
+torch-linux = ["https://download.pytorch.org/whl/cu101/torch-1.4.0-cp37-cp37m-linux_x86_64.whl"]
 torch-mac = ["https://download.pytorch.org/whl/cpu/torch-1.4.0-cp37-none-macosx_10_9_x86_64.whl"]

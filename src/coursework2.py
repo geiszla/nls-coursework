@@ -2,13 +2,9 @@
 This module should be run when evaluating coursework 2
 """
 
-from itertools import chain
 import re
-from typing import Any, Dict, List, cast
+from typing import Dict
 
-import torch
-
-from classifier import Classifier
 from corpus import Corpus
 from utilities import load_sentiment_lexicon
 
@@ -51,21 +47,6 @@ def run_coursework():
     print(review_corpus.build_sentiment_lexicon(seed))
 
     # PART 2b
-    vocabulary = positive_review_corpus.get_vocabulary().union(
-        negative_review_corpus.get_vocabulary(),
-    )
-    classifier = Classifier(vocabulary, 100, 4)
-
-    texts = positive_review_corpus.texts + negative_review_corpus.texts
-
-    data = classifier.preprocess_data(list(chain.from_iterable(texts)))
-    labels: List[torch.Tensor] = cast(Any, torch).IntTensor(
-        [0] * len(positive_review_corpus.texts) + [1] * len(negative_review_corpus.texts)
-    )
-
-    print('Evaluating classifier...')
-    mean_accuracy = classifier.test(data, labels)
-
     print('Calculating baseline sentiment metrics...')
 
     # Load sentiment lexicon
@@ -74,7 +55,7 @@ def run_coursework():
     )
     baseline_accuracy = review_corpus.get_baseline_sentiment_metrics(sentiment_lexicon)
 
-    print(f'Mean accuracy: {mean_accuracy} (baseline: {baseline_accuracy})')
+    print(f'Bbaseline accuracy: {baseline_accuracy})')
 
 
 if __name__ == '__main__':
