@@ -82,11 +82,11 @@ for line in lines:
 
         # If the word is among the target words
         if word in target_words:
-            context_indexes = [vocabulary_word_to_index[context_word]
+            context_indices = [vocabulary_word_to_index[context_word]
                 for context_word in context]
 
             # increment all co-occurrence counts for the context words
-            word_x_word_matrix[target_word_to_index[word], context_indexes]
+            word_x_word_matrix[target_word_to_index[word], context_indices]
 ```
 
 This will count the contexts for all target words. To get the context for a specific word in the text, we use `get_word_context`.

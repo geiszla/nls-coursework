@@ -5,18 +5,16 @@ This module contains utility functions to be used by other python scripts and cl
 from itertools import chain
 import os
 from pathlib import Path
-import random
 import re
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Union, cast
 
 from nltk.stem.snowball import SnowballStemmer
 from nptyping import Array
 import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
-from torch import Tensor
 
-from typings import SentimentEntry, SentimentLexicon, SplitData
+from typings import SentimentEntry, SentimentLexicon
 
 # Public functions
 
@@ -46,16 +44,6 @@ def load_texts(data_path: str) -> List[List[str]]:
             texts.append(lines)
 
     return texts
-
-
-def __load_text(file_name: Union[str, Path]) -> List[str]:
-    lines = []
-
-    with open(file_name, 'r') as input_file:
-        # Strip lines and remove empy ones
-        lines = [line for line in map(str.strip, input_file.readlines()) if len(line) > 0]
-
-    return lines
 
 
 def get_neighouring_token_count(first_tag: str, second_tag: str, text: List[Language]) -> int:
@@ -165,7 +153,7 @@ def create_clusters(
     if stemmer:
         vocabulary = [cast(Any, stemmer).stem(word) for word in vocabulary]
 
-    # Store word indexes for faster lookups
+    # Store word indices for faster lookups
     target_word_to_index = {word: index for index, word in enumerate(target_words)}
     vocabulary_word_to_index = {word: index for index, word in enumerate(vocabulary)}
 
@@ -182,11 +170,11 @@ def create_clusters(
 
             # If the word is among the target words
             if word in target_words:
-                context_indexes = [vocabulary_word_to_index[context_word]
+                context_indices = [vocabulary_word_to_index[context_word]
                     for context_word in context]
 
                 # increment all co-occurrence counts for the context words
-                word_x_word_matrix[target_word_to_index[word], context_indexes] += 1
+                word_x_word_matrix[target_word_to_index[word], context_indices] += 1
 
     print(f'Clustering (windows size: {context_size})...')
     return cast(
@@ -217,6 +205,7 @@ def load_sentiment_lexicon(path: str) -> Dict[str, Dict[str, str]]:
             lexicon[word] = dictionary
 
     return lexicon
+
 
 def classify_sentiment(
     text: str,
@@ -251,24 +240,13 @@ def classify_sentiment(
 
     return 0 if len(polarities['positive']) > len(polarities['negative']) else 1
 
-def split_dataset(
-    batches: List[Tensor], labels: List[Tensor], training_fraction: float
-) -> SplitData:
-    # Shuffle images with their labels
-    shuffled = list(zip(batches, labels))
-    random.shuffle(shuffled)
-    shuffled_batches, shuffled_labels = cast(
-        Tuple[List[Tensor], List[Tensor]],
-        zip(*shuffled),
-    )
 
-    # Separate shuffled dataset to training and validation sets
-    sample_count = len(shuffled_batches)
-    training_count = int(sample_count * training_fraction)
+# Private functions
+def __load_text(file_name: Union[str, Path]) -> List[str]:
+    lines = []
 
-    return (
-        list(shuffled_batches[0:training_count]),
-        list(shuffled_labels[0:training_count]),
-        list(shuffled_batches[training_count:sample_count]),
-        list(shuffled_labels[training_count:sample_count])
-    )
+    with open(file_name, 'r') as input_file:
+        # Strip lines and remove empy ones
+        lines = [line for line in map(str.strip, input_file.readlines()) if len(line) > 0]
+
+    return lines

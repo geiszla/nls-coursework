@@ -223,9 +223,6 @@ thinc==7.4.0 \
     --hash=sha256:a7332e323b76d63e1cfd2e6bc08a5527c5a6a0eba39197c56af8fe6eef62ef69 \
     --hash=sha256:5ac162b010f21f8fcc3fd10766025fad3ec670f6b2e0a72284912332d1ae292a \
     --hash=sha256:523e9be1bfaa3ed1d03d406ce451b6b4793a9719d5b83d2ea6b3398b96bc58b8
-https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-win_amd64.whl ; platform_system == "Windows"
-https://download.pytorch.org/whl/cpu/torch-1.4.0%2Bcpu-cp37-cp37m-linux_x86_64.whl ; platform_system == "Linux"
-https://download.pytorch.org/whl/cpu/torch-1.4.0-cp37-none-macosx_10_9_x86_64.whl ; platform_system == "Darwin"
 tqdm==4.45.0 \
     --hash=sha256:ea9e3fd6bd9a37e8783d75bfc4c1faf3c6813da6bd1c3e776488b41ec683af94 \
     --hash=sha256:00339634a22c10a7a22476ee946bbde2dbe48d042ded784e4d88e0236eca5d81
