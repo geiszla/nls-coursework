@@ -10,16 +10,17 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 import en_core_web_sm
 import nltk
 from nltk.stem.snowball import SnowballStemmer
-from nltk.tag import StanfordNERTagger
 from sklearn.metrics import accuracy_score
 from spacy.language import Language
+import stanza
 from tqdm import tqdm
 
 from typings import SentimentLexicon
-from utilities import classify_sentiment, create_clusters, get_neighouring_token_count, load_texts
+from utilities import (classify_sentiment, create_clusters, get_word_context,
+    get_neighouring_token_count, load_texts)
 
 class Corpus():
-    """Class, that represents a set of texts on which NLP operations can be performed"""
+    """Class that represents a set of texts on which NLP operations can be performed"""
 
     def __init__(
         self,
@@ -184,13 +185,17 @@ class Corpus():
             text
         """
 
-        tagger = StanfordNERTagger('english.all.3class.distsim.crf.ser.gz')
+        print('Downloading Stanford NER resources...')
+        stanza.download('en', processors='tokenize,ner')
+
+        tagger = stanza.Pipeline(lang='en', processors='tokenize,ner')
 
         print('\nExtracting named entities using the Stanford tagger...')
         entities = []
         for text in cast(Any, tqdm(self.texts)):
             # Join and tag each text
-            entities.append(tagger.tag(' '.join(text)))
+            entities.append([(entity.text, entity.type) for entity
+                in cast(Any, tagger(' '.join(text)).ents)])
 
         return entities
 
@@ -305,6 +310,10 @@ class Corpus():
 
         tagged_texts = self.get_tagged_texts()
 
+        same_polarity_words = ['and', 'also', 'as well as', 'moreover', 'plus']
+        opposite_polarity_words = ['but', 'however', 'on the other hand', 'yet', 'still',
+            'nevertheless', 'though', 'not']
+
         found_words: List[Tuple[str, str]] = []
         for text in tagged_texts:
             for line in text:
@@ -313,15 +322,35 @@ class Corpus():
 
                 for index, word in enumerate(words):
                     # Get new subjective words from the neighbors of the seed words
-                    if word in seed and index + 2 < len(words):
-                        if words[index + 1] == 'and':
-                            found_words.append((words[index + 2], seed[word]))
-                        if words[index + 1] == 'but':
-                            found_words.append((words[index + 2], (
-                                'positive' if seed[word] == 'negative' else 'negative'
-                            )))
+                    if word in seed:
+                        # Look at the words after the seed word
+                        if index + 2 < len(line) and line[index + 2].pos_ == 'ADJ':
+                            if (line[index + 1].text in same_polarity_words):
+                                found_words.append((words[index + 2], seed[word]))
+                            if line[index + 1].text in opposite_polarity_words:
+                                found_words.append((words[index + 2], (
+                                    'positive' if seed[word] == 'negative' else 'negative'
+                                )))
 
-        # Add all the found words to the dictionary once
+                        # Look at the words before the seed word
+                        if index - 2 > 0 and line[index - 2].pos_ == 'ADJ':
+                            if words[index - 1] in same_polarity_words:
+                                found_words.append((words[index - 2], seed[word]))
+                            if words[index - 1] in opposite_polarity_words:
+                                found_words.append((words[index - 2], (
+                                    'positive' if seed[word] == 'negative' else 'negative'
+                                )))
+
+                    if line[index].pos_ == 'ADJ':
+                        # Find known words in context of the current adjective and if they are in
+                        # the seed, then the current word probably also has the same polarity
+                        polarities_in_context = [seed[context_word] for context_word
+                            in get_word_context(index, words, 4) if context_word in seed]
+
+                        found_words += [(line[index].text, polarity) for polarity
+                            in polarities_in_context]
+
+        # Add all the words found to the dictionary once
         # The words and their polarity are sorted by the number of occurrences, so if a word appears
         # as both 'positive' and 'negative', the one which appears more frequenty will be added to
         # the dictionary

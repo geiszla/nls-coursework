@@ -13,6 +13,7 @@ from nptyping import Array
 import numpy
 from sklearn.cluster import KMeans
 from spacy.language import Language
+from tqdm import tqdm
 
 from typings import SentimentEntry, SentimentLexicon
 
@@ -217,6 +218,7 @@ def classify_sentiment(
 ) -> int:
     polarities: Dict[str, Dict[str, SentimentEntry]] = {'positive': {}, 'negative': {}}
 
+    # Lexicon has different POS format, so we need to convert it to the standard one
     pos_values = {
         'adverb': 'ADV',
         'noun': 'NOUN',
@@ -224,18 +226,25 @@ def classify_sentiment(
         'adj': 'ADJ',
     }
 
-    for word_token in cast(Any, tagger(text)):
+    for word_token in cast(Any, tqdm(cast(Any, tagger(text)))):
         word = word_token.text
         stemmed_word = cast(Any, stemmer).stem(word)
 
+        # If the current word satisfies the rules, add it to the corresponding polarity dictionary
         if (
-            (word in lexicon
+            word in lexicon
                 and lexicon[word]['priorpolarity'] in ['positive', 'negative']
                 and (not is_ignore_pos and lexicon[word]['pos1'] == 'anypos'
-                    or pos_values[lexicon[word]['pos1']] == word_token.pos_))
-            or is_use_stem and stemmed_word in lexicon
+                    or pos_values[lexicon[word]['pos1']] == word_token.pos_)
+        ):
+            polarities[lexicon[word]['priorpolarity']][word] = lexicon[word]
+
+        if (
+            is_use_stem and stemmed_word in lexicon
+                and lexicon[stemmed_word]['priorpolarity'] in ['positive', 'negative']
                 and (is_ignore_pos or lexicon[stemmed_word]['stemmed1'] == 'y')
         ):
+            word = stemmed_word
             polarities[lexicon[word]['priorpolarity']][word] = lexicon[word]
 
     return 0 if len(polarities['positive']) > len(polarities['negative']) else 1

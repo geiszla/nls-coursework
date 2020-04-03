@@ -34,9 +34,11 @@ class BagOfWords(nn.Module):
 
 
 class Classifier():
+    """Class that represents a trainable sentiment classifier"""
+
     def __init__(self, vocabulary: Set[str], embedding_size: int):
         self.vocabulary = vocabulary
-        self.vocabulary.add('<pad>')
+        self.vocabulary.add('<lex>')
 
         # Store word indices for faster lookup
         self.word_to_index = {word: index for index, word in enumerate(self.vocabulary)}
@@ -58,7 +60,7 @@ class Classifier():
         self.model.load_state_dict(model_dictionary)
 
     def preprocess_data(
-        self, texts: List[Any], text_labels: List[int],
+        self, texts: List[Any], text_labels: List[int]
     ) -> Tuple[List[Tensor], List[Tensor]]:
         """Creates batches of data of the appropriate format from the given texts and labels
 

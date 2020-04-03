@@ -4,6 +4,7 @@ This module should be run when evaluating coursework 2
 To retrain and evaluate the classifier, run `python src/train.py`
 """
 
+from itertools import chain
 import re
 from typing import Dict
 
@@ -19,8 +20,13 @@ def __run_coursework():
     default_tagged = inagural_corpus.get_named_entities_default()
     stanford_tagged = inagural_corpus.get_named_entities_stanford()
 
-    print(default_tagged)
-    print(stanford_tagged)
+    print(f'Default tagger found {len(list(chain.from_iterable(default_tagged)))} named entities')
+    # Print named entities of the first text
+    print(default_tagged[0])
+
+    stanford_count = len(list(chain.from_iterable(stanford_tagged)))
+    print(f'\nStanford tagger found {stanford_count} named entities')
+    print(stanford_tagged[0])
 
     # PART 2
     # Load corpora for sentiment analysis
@@ -44,14 +50,18 @@ def __run_coursework():
     seed: Dict[str, str] = {}
     with open('data/seed_lexicon.txt', 'r') as seed_reader:
         for line in seed_reader:
-            if line.startsWith('Positive adjectives:'):
-                for word in re.split(r'(Positiv adjectives: |,\s*)', line)[1:]:
+            line = line.strip()
+            line = line if len(line) == 0 or line[-1] != ';' else line[:-1]
+
+            if line.startswith('Positive adjectives:'):
+                for word in re.split(r'Positive adjectives: |,\s*', line.strip())[1:]:
                     seed[word] = 'positive'
-            elif line.startsWith('Negative adjectives:'):
-                for word in re.split(r'(Negative adjectives: |,\s*)', line)[1:]:
+            elif line.startswith('Negative adjectives:'):
+                for word in re.split(r'Negative adjectives: |,\s*', line.strip())[1:]:
                     seed[word] = 'negative'
 
-    print(review_corpus.build_sentiment_lexicon(seed))
+    built_lexicon = review_corpus.build_sentiment_lexicon(seed)
+    print(built_lexicon)
 
     # PART 2b
     print('Calculating baseline sentiment metrics...')
@@ -64,7 +74,7 @@ def __run_coursework():
     # Use it to evaluate the accuracy of the baseline sentiment classifier
     baseline_accuracy = review_corpus.get_baseline_sentiment_metrics(sentiment_lexicon)
 
-    print(f'Baseline accuracy: {baseline_accuracy})')
+    print(f'Baseline accuracy: {baseline_accuracy}')
 
 
 if __name__ == '__main__':

@@ -23,10 +23,12 @@ def __train_classifier():
     )
 
     # Tokenize corpora to get the words in them
+    print('')
     positive_texts = positive_review_corpus.get_tagged_texts()
     negative_texts = negative_review_corpus.get_tagged_texts()
 
     # Generate the vocabulary of all texts and create a classifier from it
+    print('Generating vocabulary...')
     vocabulary = positive_review_corpus.get_vocabulary().union(
         negative_review_corpus.get_vocabulary()
     )
@@ -49,15 +51,18 @@ def __train_classifier():
     )
 
     # Create k-fold splits
-    kfold = KFold(5, shuffle=True)
+    fold_count = 5
+    kfold = KFold(fold_count, shuffle=True)
     cumulative_accuracy = 0.0
     best_validation_loss = float('inf')
 
-    print('\nTraining...')
-    for training_indices, validation_indices in cast(
+    print('\nTraining classifier...')
+    for fold, (training_indices, validation_indices) in enumerate(cast(
         List[Tuple[List[int], List[int]]],
         kfold.split(data, labels),
-    ):
+    )):
+        print(f'\n===== Fold: {fold + 1}/{fold_count} =====')
+
         # For each fold, get the training and validation data
         training_data = [data[index] for index in training_indices]
         training_labels = [labels[index] for index in training_indices]
@@ -100,7 +105,7 @@ def __train_classifier():
                 + f' |  Val. Acc: {validation_accuracy * 100:.2f}%\n')
 
             # Add the accuracy to the cumulative accuracy at the end of each fold
-            if epoch == 5:
+            if epoch == 4:
                 cumulative_accuracy += validation_accuracy
 
     print(f'Average accuracy across folds: {cumulative_accuracy / 5}')
