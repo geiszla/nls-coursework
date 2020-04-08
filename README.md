@@ -6,7 +6,7 @@
 
 ## Setup
 
-1. Create a Python virtual environment (e.g. `conda create -name nls python=3.7.7` or `virtualenv env`)
+1. Create a Python virtual environment (e.g. `conda create --name nls python=3.7.7` or `virtualenv env`)
 2. Activate the environment (e.g. `conda activate nls` or `source ./env/bin/activate`)
 3. Install dependencies: `pip install -r requirements.txt`
 4. Install PyTorch (`pip install`):
